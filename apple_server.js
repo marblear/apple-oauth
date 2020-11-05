@@ -249,3 +249,5 @@ Accounts.registerLoginHandler((query) => {
   }
   return getServiceDataFromTokens(getTokens(query, true), true);
 });
+
+Apple.getServiceDataFromTokens = getServiceDataFromTokens;
