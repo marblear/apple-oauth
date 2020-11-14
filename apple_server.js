@@ -29,14 +29,21 @@ const verifyAndParseIdentityToken = (idToken, isNative = false) =>
     Apple.jwksClient.getSigningKey(kid, (err, key) => {
       if (err) {
         reject(err);
+        return;
       }
 
       const signingKey = key.publicKey || key.rsaPublicKey;
-      const parsedIdToken = jwt.verify(idToken, signingKey, {
-        issuer: Apple.issuer,
-        audience: clientId,
-        algorithms: [alg],
-      });
+      let parsedIdToken;
+      try {
+        parsedIdToken = jwt.verify(idToken, signingKey, {
+          issuer: Apple.issuer,
+          audience: clientId,
+          algorithms: [alg],
+        });
+      } catch (e) {
+        reject(e);
+        return;
+      }
 
       const issOk = parsedIdToken.iss === Apple.issuer;
       const audOk = parsedIdToken.aud === clientId;
