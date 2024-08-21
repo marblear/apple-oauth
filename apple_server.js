@@ -1,7 +1,7 @@
 /* global OAuth */
+import { Accounts } from 'meteor/accounts-base';
 import { Promise } from 'meteor/promise';
 import Apple from './namespace.js';
-import { Accounts } from 'meteor/accounts-base';
 import { getAppIdFromOptions, getClientIdFromOptions, getServiceConfiguration, METHOD_NAMES } from './utils';
 
 const jwt = require('jsonwebtoken');
@@ -13,7 +13,7 @@ Apple.issuer = 'https://appleid.apple.com';
 Apple.jwksClient = jwksClient({
   jwksUri: `${Apple.issuer}/auth/keys`,
   cache: true,
-  cacheMaxAge: 1000 * 3600 * 24, // 24h in ms
+  cacheMaxAge: 1000 * 3600 * 24 // 24h in ms
 });
 
 /**
@@ -30,7 +30,8 @@ const verifyAndParseIdentityToken = (query, idToken, isNative = false) =>
     let state = {};
     try {
       state = OAuth._stateFromQuery(query) || {};
-    } catch (e) {}
+    } catch (e) {
+    }
     const clientId = isNative
       ? Apple.config.nativeClientId
       : getClientIdFromOptions(state, Apple.config);
@@ -38,14 +39,21 @@ const verifyAndParseIdentityToken = (query, idToken, isNative = false) =>
     Apple.jwksClient.getSigningKey(kid, (err, key) => {
       if (err) {
         reject(err);
+        return;
       }
 
       const signingKey = key.publicKey || key.rsaPublicKey;
-      const parsedIdToken = jwt.verify(idToken, signingKey, {
-        issuer: Apple.issuer,
-        audience: clientId,
-        algorithms: [alg],
-      });
+      let parsedIdToken;
+      try {
+        parsedIdToken = jwt.verify(idToken, signingKey, {
+          issuer: Apple.issuer,
+          audience: clientId,
+          algorithms: [alg]
+        });
+      } catch (e) {
+        reject(e);
+        return;
+      }
 
       const issOk = parsedIdToken.iss === Apple.issuer;
       const audOk = parsedIdToken.aud === clientId;
@@ -88,7 +96,7 @@ const getServiceDataFromTokens = ({ query, tokens, isNative = false, isBeingCall
     idToken,
     scope: scopes,
     expiresAt: Date.now() + 1000 * parseInt(expiresIn, 10),
-    email: parsedIdToken.email || query.email,
+    email: parsedIdToken.email || query?.email
   };
 
   // Only set the token in serviceData if it's there. this ensures
@@ -112,15 +120,15 @@ const getServiceDataFromTokens = ({ query, tokens, isNative = false, isBeingCall
 
   if (isBeingCalledFromLoginHandler) {
     return Accounts.updateOrCreateUserFromExternalService(
-        'apple',
-        serviceData,
-        options
+      'apple',
+      serviceData,
+      options
     );
   }
 
   return {
     serviceData,
-    options,
+    options
   };
 };
 
@@ -140,19 +148,19 @@ const generateToken = function(teamId, clientId, privateKey, keyId) {
     iat: now,
     exp: expiry,
     aud: 'https://appleid.apple.com',
-    sub: clientId,
+    sub: clientId
   };
 
   try {
     const token = jwt.sign(claims, privateKey, {
       algorithm: 'ES256',
-      keyid: keyId,
+      keyid: keyId
     });
 
     return token;
   } catch (err) {
     throw Object.assign(new Error(`Failed to sign token. ${err}`), {
-      response: err.response,
+      response: err.response
     });
   }
 };
@@ -165,12 +173,11 @@ function getAbsoluteUrlOptions(query) {
     return undefined;
   }
   try {
-    console.log('stateFromQuery', query);
     const state = OAuth._stateFromQuery(query) || {};
 
     const redirectUrl = state.redirectUrl;
     return {
-      rootUrl: redirectUrl,
+      rootUrl: redirectUrl
     };
   } catch (e) {
     console.error(
@@ -186,14 +193,15 @@ function getAbsoluteUrlOptions(query) {
  *
  * @param {*} query auth/authorize redirect response from apple
  */
-const getTokens = ({query, isNative = false}) => {
+const getTokens = ({ query, isNative = false }) => {
   const endpoint = 'https://appleid.apple.com/auth/token';
   let state = {};
   try {
     state = OAuth._stateFromQuery(query) || {};
-  } catch (e) {}
+  } catch (e) {
+  }
 
-  const appId = getAppIdFromOptions(state)
+  const appId = getAppIdFromOptions(state);
   Apple.config = getServiceConfiguration({ appId });
   if (!Apple.config) {
     throw new ServiceConfiguration.ConfigError('Apple');
@@ -223,8 +231,8 @@ const getTokens = ({query, isNative = false}) => {
         client_id: clientId,
         client_secret: token,
         grant_type: 'authorization_code',
-        redirect_uri: redirectUriWithOauth,
-      },
+        redirect_uri: redirectUriWithOauth
+      }
     });
   } catch (err) {
     throw Object.assign(
@@ -232,7 +240,7 @@ const getTokens = ({query, isNative = false}) => {
         `Failed to complete OAuth handshake with Apple. ${err.message}`
       ),
       {
-        response: err.response,
+        response: err.response
       }
     );
   }
@@ -260,30 +268,32 @@ const getTokens = ({query, isNative = false}) => {
       user,
       fullName: query.fullName
         ? [
-            query.fullName.givenName,
-            query.fullName.middleName,
-            query.fullName.familyName,
-          ]
-              .filter(Boolean)
-              .join(' ')
-        : '',
+          query.fullName.givenName,
+          query.fullName.middleName,
+          query.fullName.familyName
+        ]
+          .filter(Boolean)
+          .join(' ')
+        : ''
     };
   }
 };
 
 const getServiceData = query =>
   getServiceDataFromTokens({
-    query, tokens: getTokens({query})
-});
+    query, tokens: getTokens({ query })
+  });
 OAuth.registerService('apple', 2, null, getServiceData);
 Accounts.registerLoginHandler(query => {
   const methodName = query.methodName;
   if (!Object.values(METHOD_NAMES).includes(methodName)) {
     return;
   }
-
   const isNative = methodName === METHOD_NAMES.NATIVE;
   return getServiceDataFromTokens({
-    query, tokens: getTokens({query, isNative}), isNative, isBeingCalledFromLoginHandler: true
+    query, tokens: getTokens({ query, isNative }), isNative, isBeingCalledFromLoginHandler: true
   });
 });
+
+Apple.verifyAndParseIdentityToken = verifyAndParseIdentityToken;
+Apple.getServiceDataFromTokens = getServiceDataFromTokens;
