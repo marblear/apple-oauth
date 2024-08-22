@@ -33,7 +33,7 @@ const verifyAndParseIdentityToken = (query, idToken, isNative = false) =>
     } catch (e) {
     }
     const clientId = isNative
-      ? Apple.config.nativeClientId
+      ? getServiceConfiguration({ appId: query.appId }).nativeClientId
       : getClientIdFromOptions(state, Apple.config);
 
     Apple.jwksClient.getSigningKey(kid, (err, key) => {
