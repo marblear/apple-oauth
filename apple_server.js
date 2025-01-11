@@ -28,12 +28,14 @@ const verifyAndParseIdentityToken = (query, idToken, isNative = false) =>
     const decoded = jwt.decode(idToken, { complete: true });
     const { kid, alg } = decoded.header;
     let state = {};
-    try {
-      state = OAuth._stateFromQuery(query) || {};
-    } catch (e) {
+    if (query?.state) {
+      try {
+        state = OAuth._stateFromQuery(query) || {};
+      } catch (e) {
+      }
     }
     const clientId = isNative
-      ? getServiceConfiguration({ appId: query.appId }).nativeClientId
+      ? getServiceConfiguration({ appId: query?.appId }).nativeClientId
       : getClientIdFromOptions(state, Apple.config);
 
     Apple.jwksClient.getSigningKey(kid, (err, key) => {
