@@ -24,16 +24,18 @@ Apple.jwksClient = jwksClient({
  * @param isNative
  */
 const verifyAndParseIdentityToken = async (query, idToken, isNative = false) =>
-  new Promise((resolve, reject) => {
+  new Promise(async (resolve, reject) => {
     const decoded = jwt.decode(idToken, { complete: true });
     const { kid, alg } = decoded.header;
     let state = {};
-    try {
-      state = OAuth._stateFromQuery(query) || {};
-    } catch (e) {
+    if (query) {
+      try {
+        state = OAuth._stateFromQuery(query) || {};
+      } catch (e) {
+      }
     }
     const clientId = isNative
-      ? getServiceConfiguration({ appId: query.appId }).nativeClientId
+      ? (await getServiceConfiguration({ appId: query?.appId }))?.nativeClientId
       : getClientIdFromOptions(state, Apple.config);
 
     Apple.jwksClient.getSigningKey(kid, (err, key) => {
