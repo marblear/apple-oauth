@@ -28,7 +28,7 @@ const verifyAndParseIdentityToken = async (query, idToken, isNative = false) =>
     const decoded = jwt.decode(idToken, { complete: true });
     const { kid, alg } = decoded.header;
     let state = {};
-    if (query) {
+    if (query?.state) {
       try {
         state = OAuth._stateFromQuery(query) || {};
       } catch (e) {
